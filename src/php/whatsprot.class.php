@@ -26,8 +26,8 @@ class WhatsProt
     const WHATSAPP_SERVER = 's.whatsapp.net';               // The hostname used to login/send messages.
     const WHATSAPP_UPLOAD_HOST = 'https://mms.whatsapp.net/client/iphone/upload.php'; // The upload host.
     const WHATSAPP_DEVICE = 'Android';                      // The device name.
-    const WHATSAPP_VER = 'WhatsApp/2.11.69';                // The WhatsApp version.
-    const WHATSAPP_USER_AGENT = 'WhatsApp/2.11.69 Android/4.3 Device/GalaxyS3';// User agent used in request/registration code.
+    const WHATSAPP_VER = 'WhatsApp/2.11.23';                // The WhatsApp version.
+    const WHATSAPP_USER_AGENT = 'WhatsApp/2.11.23 Android/4.3 Device/GalaxyS3';// User agent used in request/registration code.
 
     /**
      * Property declarations.
@@ -78,9 +78,13 @@ class WhatsProt
         $this->reader = new BinTreeNodeReader($dict);
         $this->debug = $debug;
         $this->phoneNumber = $number;
+        if (!$phone = $this->dissectPhone()) {
+            throw new Exception('The prived phone number is not valid.');
+        }
+
         if (!$this->checkIdentity($identity)) {
-            //compute sha identity hash
-            $this->identity = $this->buildIdentity($identity);
+            //compute the identity
+            $this->identity = strtolower(urlencode(generateId($phone['cc'], $phone['phone'])));
         } else {
             //use provided identity hash
             $this->identity = $identity;
@@ -125,14 +129,34 @@ class WhatsProt
             throw new Exception('The prived phone number is not valid.');
         }
 
+	$countryCode = null;
+	$langCode = null;
+
+        if ($phone['ISO3166'] != '') {
+            $countryCode = $phone['ISO3166'];
+        }
+        if ($countryCode == null) {
+            $countryCode = 'US';
+        }
+        if ($phone['ISO639'] != '') {
+            $langCode = $phone['ISO639'];
+        }
+        if ($langCode == null) {
+            $langCode = 'en';
+        }
+
+	$id = generateId($phone['cc'], $phone['phone']);
         // Build the url.
         $host = 'https://' . static::WHATSAPP_CHECK_HOST;
         $query = array(
             'cc' => $phone['cc'],
             'in' => $phone['phone'],
-            'id' => $this->identity,
-            'c' => 'cookie',
+            'lg' => $langCode,
+            'lc' => $countryCode,
+            'id' => strtolower(urlencode($id))
         );
+	print_r($query);
+
 
         $response = $this->getResponse($host, $query);
 
@@ -142,7 +166,7 @@ class WhatsProt
                 print_r($query);
                 print_r($response);
             }
-            throw new Exception('There was a problem trying to request the code.');
+            throw new Exception('There was a problem trying to check credentials.');
         } else {
             $this->eventManager()->fire('onCredentialsGood', array(
                 $this->phoneNumber,
@@ -1493,20 +1517,9 @@ class WhatsProt
         $this->sendPresence();
     }
 
-    /**
-     * Create an identity string
-     *
-     * @param  string $identity A user string
-     * @return string           Correctly formatted identity
-     */
-    protected function buildIdentity($identity)
-    {
-        return strtolower(urlencode(sha1($identity, true)));
-    }
-
     protected function checkIdentity($identity)
     {
-        return (strlen(urldecode($identity)) == 20);
+        return (strlen(urldecode($identity)) == 40);
     }
 
     /**
