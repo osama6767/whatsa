@@ -298,14 +298,14 @@ class WhatsProt
         $query = array(
             'cc' => $phone['cc'],
             'in' => $phone['phone'],
-            'to' => $this->phoneNumber,
+	    'id' => 'abcdef0123456789',
             'lg' => $langCode,
             'lc' => $countryCode,
-            'method' => $method,
+            'mnc' => '01',
             'mcc' => $phone['mcc'],
-            'mnc' => '001',
-            'token' => urlencode($token),
-            'id' => $this->identity,
+            'method' => $method,
+            'reason' => '',
+            'token' => urlencode($token)
         );
 
         if ($this->debug) {
